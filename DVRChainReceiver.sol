@@ -9,9 +9,24 @@ contract DVRChainReceiver {
 
     // Address of the CrossChainRouter contract
     address public crossChainRouter;
+    address _sourceBlockchain;
+    uint256 _sourceBlockchainId;
+    address _destinationBlockchain;
+    uint256 _destinationBlockchainId;
+    bytes _evmData;
+    bytes32 _messageId;
+    bytes32 _oraclemessages;
+    address _recipientAddress;
 
     // Mapping to store received cross-chain messages
     mapping(bytes32 => CrossChainBase) public messages;
+    mapping(bytes32 => CrossChainBase2) public oraclemessages;
+    mapping(uint256 => uint256) public sourceIDList;
+    mapping(uint256 => uint256) public destinationIDList;
+    mapping(address => address) public sourceaddressList;
+    mapping(address => address) public destinationaddressList;
+    mapping(bytes => bytes) public evmDataList;
+    mapping(address => address) public receipientList;
 
     // Structure to store cross-chain message data
     struct CrossChainBase {
@@ -21,19 +36,20 @@ contract DVRChainReceiver {
         uint256 sourceBlockchainId;
         address destinationBlockchain;
         uint256 destinationBlockchainId;
-    //    bytes4 sourceBlockchainSelector;  // Add this line
-    //    bytes4 destinationBlockchainSelector;  // Add this line
+        bool isOracleMessage; // Added this line
+    }
+
+    struct CrossChainBase2 {
         address oracleAddress;
         address routerAddress;
         bytes32 requestId;
         uint256 transactionTime;
-        bool isOracleMessage;
     }
 
     event CrossChainMessageReceived(bytes32 messageId);
+    event CrossChainOracleMessageReceived(bytes32 oraclemessageId);
     event CrossChainMessageProcessed(bytes32 messageId, address recipientAddress, bytes evmData);
 
-    // Function called by the DVR Chain to deliver a cross-chain message
     function receiveCrossChainMessage1(
         address recipientAddress,
         bytes memory evmData,
@@ -41,8 +57,6 @@ contract DVRChainReceiver {
         uint256 sourceBlockchainId,
         address destinationBlockchain,
         uint256 destinationBlockchainId
-   //     bytes4 sourceBlockchainSelector,  // Add this line
-    //    bytes4 destinationBlockchainSelector  // Add this line
     ) public {
         bytes32 messageId = keccak256(abi.encodePacked(
             recipientAddress,
@@ -60,80 +74,93 @@ contract DVRChainReceiver {
             sourceBlockchainId: sourceBlockchainId,
             destinationBlockchain: destinationBlockchain,
             destinationBlockchainId: destinationBlockchainId,
-       //     sourceBlockchainSelector: sourceBlockchainSelector,  // Add this line
-        //    destinationBlockchainSelector: destinationBlockchainSelector,  // Add this line
-            oracleAddress: address(0),
-            routerAddress: address(0),
-            requestId: bytes32(0),
-            transactionTime: 0,
-            isOracleMessage: false
+            isOracleMessage: false // Added this line
         });
 
+        _sourceBlockchain = sourceaddressList[sourceBlockchain];
+        _sourceBlockchainId = sourceIDList[sourceBlockchainId];
+        _destinationBlockchain = destinationaddressList[destinationBlockchain];
+        _destinationBlockchainId = destinationIDList[destinationBlockchainId];
+        _evmData = evmDataList[evmData];
+        _recipientAddress = receipientList[recipientAddress];
+          _messageId = messageId;
+   
         emit CrossChainMessageReceived(messageId);
     }
 
-    // Function called by the DVR Chain to deliver a cross-chain oracle message
     function receiveCrossChainMessage2(
         address oracleAddress,
         address routerAddress,
         bytes32 requestId,
         uint256 transactionTime
     ) public {
-        bytes32 messageId = keccak256(abi.encodePacked(
+        bytes32 oraclemessageId = keccak256(abi.encodePacked(
             oracleAddress,
             routerAddress,
             requestId,
             transactionTime
         ));
 
-        messages[messageId] = CrossChainBase({
-            recipientAddress: address(0),
-            evmData: "",
-            sourceBlockchain: address(0),
-            sourceBlockchainId: 0,
-            destinationBlockchain: address(0),
-            destinationBlockchainId: 0,
-         //   sourceBlockchainSelector: bytes4(0),  // Add this line
-         //   destinationBlockchainSelector: bytes4(0),  // Add this line
+        oraclemessages[oraclemessageId] = CrossChainBase2({
             oracleAddress: oracleAddress,
             routerAddress: routerAddress,
             requestId: requestId,
-            transactionTime: transactionTime,
-            isOracleMessage: true
+            transactionTime: transactionTime
         });
-
-        emit CrossChainMessageReceived(messageId);
+           _oraclemessages = oraclemessageId;
+        emit CrossChainOracleMessageReceived(oraclemessageId);
     }
 
-    // Function to process a cross-chain message
-    function processCrossChainMessage(bytes32 messageId) public {
+    function processCrossChainMessage(bytes32 messageId, bytes32 oraclemessageId) public {
         CrossChainBase storage message = messages[messageId];
-
+       CrossChainBase2 storage oraclemessage = oraclemessages[oraclemessageId];
         if (!message.isOracleMessage) {
-            // Handle regular cross-chain message
-            // Transfer assets to the recipient address
             ICrossChainRouter(crossChainRouter).transferAssets(
                 message.recipientAddress,
                 message.evmData,
                 message.sourceBlockchainId,
-           //     message.sourceBlockchainSelector,
                 message.destinationBlockchainId
-          //      message.destinationBlockchainSelector
             );
 
-            // Process EVM data in ICDPReceiver contract
             ICDPReceiver(message.recipientAddress).processEVMData(
-                message.evmData,
+                messages[messageId].evmData,
                 address(0),
                 address(0),
                 bytes32(0),
-                message.transactionTime
+                oraclemessages[oraclemessageId].transactionTime
             );
 
             emit CrossChainMessageProcessed(messageId, message.recipientAddress, message.evmData);
         } else {
-            // Handle CrossChainOracleMessage
             // Additional logic for processing oracle messages if needed
         }
+    }
+
+    function getsourceBlockchain(address _sourceBlockchain) public returns (address) {
+        return _sourceBlockchain;
+    }
+
+    function getsourceBlockchainId(uint256 _sourceBlockchainId) public returns (uint256) {
+        return _sourceBlockchainId;
+    }
+
+    function getdestinationBlockchain(address _destinationBlockchain) public returns (address) {
+        return _destinationBlockchain;
+    }
+
+    function getdestinationBlockchainId(address _destinationBlockchainId) public returns (address) {
+        return _destinationBlockchainId;
+    }
+
+    function getevmData(bytes calldata _evmData) public returns (bytes calldata) {
+        return _evmData;
+    }
+
+    function getmessageId(bytes32 _messageId) public returns (bytes32) {
+        return _messageId;
+    }
+
+    function getrecipientAddress(address _recipientAddress) public returns (address) {
+        return _recipientAddress;
     }
 }
