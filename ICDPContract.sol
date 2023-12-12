@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
-
-import "@chainlink/contracts/src/v0.8/interfaces/IChainlinkClient.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+pragma solidity ^0.8.2;
 
 import "./ICDPConnect.sol";
-import "./OracleAggregationContract.sol"; // Import the OracleAggregationContract
+import "./OracleAggregationContract.sol";
 
-contract ICDP is ICDPConnect {
-
+contract ICDPContract is ICDPConnect {
     // Mapping to store token information for registered chains
     mapping(address => TokenInfo) public registeredChainTokenInfo;
+
+    address public owner;
 
     // Reference to the OracleAggregationContract
     OracleAggregationContract public oracleAggregationContract;
@@ -30,6 +28,34 @@ contract ICDP is ICDPConnect {
 
     // Event emitted when data is sent to the OracleAggregationContract
     event DataSentToOracle(bytes indexed requestId, address indexed chainAddress, bytes data);
+
+    // Modifier to restrict access to the owner
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Not the owner");
+        _;
+    }
+
+    // Constructor
+    constructor(
+        address _virtualRelayChain,
+        address _oracleContract,
+        address _ICDPReceiverContract,
+        address _routerAddress,
+        uint256 _blockchainId
+    ) ICDPConnect(_virtualRelayChain, _oracleContract, _ICDPReceiverContract, _routerAddress, _blockchainId) {
+        // Your constructor logic here
+    }
+
+    // Function to set the OracleAggregationContract, restricted to the owner
+    function setOracleAggregationContract(address oracleAggregationContractAddress) external onlyOwner {
+        oracleAggregationContract = OracleAggregationContract(oracleAggregationContractAddress);
+    }
+
+    // Function to transfer ownership, only callable by the current owner
+    function transferOwnership(address newOwner) external onlyOwner {
+        require(newOwner != address(0), "Invalid new owner");
+        owner = newOwner;
+    }
 
     // Function to enable a registered chain
     function enableChain(address chainAddress) public {
@@ -83,13 +109,14 @@ contract ICDP is ICDPConnect {
     }
 
     // Function to send data to a registered chain based on EVM compatibility
-    function sendDataToChain(address chainAddress, bytes memory data) public {
+    function sendDataToChain(address chainAddress, bytes memory data, uint256 DVRCChainID) public {
         if (isEVMCompatible(chainAddress)) {
-            sendCrossChainMessageToEVMChain(chainAddress, data);
+            sendMessageToEVMChain(chainAddress, data, DVRCChainID);
         } else {
             // Handle sending data to non-EVM chain
             // (Implementation may depend on specific communication protocol)
-            // sendCrossChainMessageToNonEVMChain(chainAddress, data);
+         
+           sendCrossChainMessageToNonEVMChain(chainAddress, _keys,  _values); 
         }
 
         // Assuming the OracleAggregationContract is set
@@ -115,10 +142,5 @@ contract ICDP is ICDPConnect {
     function sendAndDisableData(address chainAddress, bytes memory data) public {
         sendDataToChain(chainAddress, data);
         disableChain(chainAddress);
-    }
-
-    // Function to set the OracleAggregationContract
-    function setOracleAggregationContract(address oracleAggregationContractAddress) external onlyOwner {
-        oracleAggregationContract = OracleAggregationContract(oracleAggregationContractAddress);
     }
 }
