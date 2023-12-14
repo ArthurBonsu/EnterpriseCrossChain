@@ -26,7 +26,7 @@ contract DataValidationContract {
     }
 
     // Function to validate the collected data
-    function validateData(bytes memory data, bytes32 requestId) public {
+    function validateData(bytes memory data, bytes32 requestId) public returns (bool) {
         require(hasRole(msg.sender, OracleConfigurationContract.OracleRole.VALIDATOR), "Address not authorized to validate data");
 
         // Implement custom validation logic based on the specific data being collected
@@ -39,6 +39,7 @@ contract DataValidationContract {
         } else {
             emit DataValidationFailed(requestId);
         }
+        return true;
     }
 
     // Internal function to perform custom validation logic
