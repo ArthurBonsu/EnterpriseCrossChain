@@ -58,7 +58,7 @@ contract OracleAggregationContract {
     function submitValidatedData(bytes32 requestId, bytes memory validatedData) external onlyTransmitter {
         require(dataCollectionRequests[requestId] == DataCollectionRequestStatus.IN_PROGRESS, "Data collection request not in progress");
 
-        if (dataValidationContract.validateData(validatedData)) {
+        if (dataValidationContract.validateData(validatedData,requestId  )) {
             emit ValidatedDataReceived(requestId, validatedData);
             dataCollectionRequests[requestId] = DataCollectionRequestStatus.COMPLETED;
             emit DataCollectionRequestCompleted(requestId);
